@@ -36,19 +36,20 @@ address, sep, port = args.local.partition(':')
 
 if sep == '':
     port = address
-    address = '*'
-elif address == '':
-    address = '*'
+    address = None
 
 # create sockets
-localAddrs = socket.getaddrinfo(address, port, proto=socket.IPPROTO_TCP)
+localAddrs = socket.getaddrinfo(address, port, proto=socket.IPPROTO_TCP, flags=socket.AI_PASSIVE)
 listeningSockets = [];
 for (family, sockType, protocol, ignore, sockAddr) in localAddrs:
-    s = socket.socket(family, sockType, protocol)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(sockAddr)
-    s.listen(10)
-    listeningSockets.append(s)
+    try:
+        s = socket.socket(family, sockType, protocol)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(sockAddr)
+        s.listen(10)
+        listeningSockets.append(s)
+    except:
+        print("could not bind to {:s}".format(str(sockAddr)))
 
 sockets.extend(listeningSockets)
 clients = []
@@ -77,8 +78,11 @@ while True:
         elif s in clients:
             # connection from clients are read-only, so drain the buffer only
             # or the connection is reset/eof
-            buf = s.recv(1024)
-            if len(buf) == 0:
+            try:
+                buf = s.recv(1024)
+                if len(buf) == 0:
+                    errSocks.append(s)
+            except:
                 errSocks.append(s)
 
     # handle faulted client connections
